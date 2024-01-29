@@ -1,0 +1,35 @@
+# Ignore compiled Python files
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore the virtual environment
+venv/
+
+# Ignore the model weights and checkpoints
+model_weights/
+checkpoints/
+*.pt
+*.pth
+
+# Ignore the logs and tensorboard files
+logs/
+tensorboard/
+
+# Ignore any generated data or output files
+data/
+output/
+
+# Ignore any IDE or editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.pydevproject
+
+# Ignore any system or temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+

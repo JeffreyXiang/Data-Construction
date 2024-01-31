@@ -7,7 +7,7 @@ from .u2net import U2NETP # small version u2net 4.7 MB
 from .utils import *
 
 
-def load(model_name='u2net'):
+def load(model_name='u2net', device='cuda'):
     if(model_name=='u2net'):
         print("...load U2NET---173.6 MB")
         net = U2NET(3,1)
@@ -15,9 +15,9 @@ def load(model_name='u2net'):
         print("...load U2NEP---4.7 MB")
         net = U2NETP(3,1)
     path = os.path.join(os.path.dirname(__file__), 'models', f'{model_name}.pt')
-    net.load_state_dict(torch.load(path))
-    net.cuda()
+    net.load_state_dict(torch.load(path, map_location='cpu'))
     net.eval()
+    net.to(device)
     return net
 
 

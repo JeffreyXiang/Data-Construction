@@ -12,15 +12,16 @@ from .diffusion import frameworks
 from .diffusion import samplers
 
 
-def load(model_name='sdipdogs_depth_aware_inpaint'):
+def load(model_name='sdipdogs_depth_aware_inpaint', device='cuda'):
     with open(os.path.join(os.path.dirname(__file__), 'models', f'{model_name}.json'), 'r') as f:
         cfg = edict(json.load(f))
-    backbone = getattr(backbones, cfg.backbone.name)(**cfg.backbone.args).cuda()
+    backbone = getattr(backbones, cfg.backbone.name)(**cfg.backbone.args)
     framework = getattr(frameworks, cfg.framework.name)(backbone, **cfg.framework.args)
     ## Load checkpoint
-    ckpt = torch.load(os.path.join(os.path.dirname(__file__), 'models', f'{model_name}.pt'))
+    ckpt = torch.load(os.path.join(os.path.dirname(__file__), 'models', f'{model_name}.pt'), map_location='cpu')
     backbone.load_state_dict(ckpt)
     backbone.eval()
+    backbone.to(device)
     sampler = samplers.DdimSampler(framework)
     return sampler
 

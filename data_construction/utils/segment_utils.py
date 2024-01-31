@@ -7,8 +7,8 @@ __all__ = [
 ]
 
 
-def load_u2net_model(model_name='u2net'):
-    return rmbg.load(model_name)
+def load_u2net_model(model_name='u2net', device='cuda'):
+    return rmbg.load(model_name, device)
 
 
 @torch.no_grad()

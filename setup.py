@@ -22,6 +22,7 @@ setuptools.setup(
         "pycocotools",
         "opencv-python",
         "easydict",
+        "timm==0.6.12",
     ]
 )
 

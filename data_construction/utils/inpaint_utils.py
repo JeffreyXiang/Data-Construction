@@ -22,8 +22,8 @@ def load_sdv2_inpaint_model(model_path="stabilityai/stable-diffusion-2-inpaintin
     return sdv2inpaint_model
 
 
-def load_ivid_inpaint_model(model_name='sdipdogs_depth_aware_inpaint'):
-    ivid_inpaint_model = ivid.load(model_name)
+def load_ivid_inpaint_model(model_name='sdipdogs_depth_aware_inpaint', device='cuda'):
+    ivid_inpaint_model = ivid.load(model_name, device)
     return ivid_inpaint_model
 
 

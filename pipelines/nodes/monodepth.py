@@ -2,8 +2,6 @@ import torch
 from typing import *
 
 from utils.monodepth_utils import *
-from utils.inpaint_utils import *
-from utils.segment_utils import *
 from .base import Node
 
 
@@ -43,7 +41,7 @@ class DisparityPrediction(Node):
         self.model_name = model_name
         self.model = self.MODEL_REGISTRY[self.model_name][0]()
         self.predict_disparity = self.MODEL_REGISTRY[self.model_name][1]
-        
+
     def __call__(self, pipe, data: Dict[str, torch.Tensor]):
         """
         Predict depth from image using DepthAnything.

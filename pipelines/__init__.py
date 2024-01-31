@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import torch
 from typing import *
@@ -18,8 +19,12 @@ class Compose:
     def __getitem__(self, index: int):
         return self.nodes[index]
 
-    def __call__(self, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], timing: bool = False):
         for module in self.nodes:
+            if timing:
+                start = time.time()
             data = module(self, data)
+            if timing:
+                print(f"{module.__class__.__name__}: {time.time() - start:.3f} sec")
         return data
 

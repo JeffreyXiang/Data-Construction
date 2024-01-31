@@ -1,5 +1,6 @@
 from typing import *
 import torch
+import torch.nn.functional as F
 import numpy as np
 import cv2
 from torchvision.transforms import Compose
@@ -41,6 +42,7 @@ def depthanything_predict_disparity(depth_anything, image: torch.Tensor):
     Returns:
         depth: (N, H, W) tensor of linearized depth.
     """
+    H, W = image.shape[2:]
     transform = Compose([
         Resize(
             width=518,
@@ -63,4 +65,5 @@ def depthanything_predict_disparity(depth_anything, image: torch.Tensor):
     image = torch.from_numpy(image).float().to(device)
 
     depth_tensor = depth_anything(image)
+    depth_tensor = F.interpolate(depth_tensor.unsqueeze(1), size=(H, W), mode='bilinear', align_corners=False).squeeze(1)
     return depth_tensor

@@ -6,14 +6,20 @@ import torch
 from torchvision import transforms
 import PIL.Image as Image
 from typing import *
-import utils3d
 
 
-class SAMDepthDataset(torch.utils.data.Dataset):
+class SA_1B(torch.utils.data.Dataset):
     """
     Dataset for images.
     """
-    def __init__(self, root: str, image_size: int = 512):
+    def __init__(
+            self,
+            root: str,
+            image_size: int = 512,
+            crop: bool = False,
+            normalize: bool = False,
+            return_annotation: bool = False,
+        ):
         """
         Args:
             root: Root directory of dataset.
@@ -22,6 +28,9 @@ class SAMDepthDataset(torch.utils.data.Dataset):
         super().__init__()
         self.root = root
         self.image_size = image_size
+        self.crop = crop
+        self.normalize = normalize
+        self.return_annotation = return_annotation
         self.filenames = os.listdir(os.path.join(root, "images"))
         self.filenames = [os.path.splitext(filename)[0] for filename in self.filenames]
         self.filenames = sorted(self.filenames)
@@ -41,16 +50,8 @@ class SAMDepthDataset(torch.utils.data.Dataset):
             return True
         else:
             return False
-    
-    def __getitem__(self, index: int):
-        filename = self.filenames[index]
-        image_path = os.path.join(self.root, "images", filename + ".jpg")
-        annotation_path = os.path.join(self.root, "annotations", filename + ".json")
-        annotations = json.load(open(annotation_path))['annotations']
-        
-        # Load image
-        image = Image.open(image_path).convert("RGB")
-        
+
+    def _crop_image(self, image, annotations):
         # Filter out background
         annotations = [anno for anno in annotations if not self._is_background_bbox(anno['crop_box'], image.size)]
 
@@ -96,11 +97,38 @@ class SAMDepthDataset(torch.utils.data.Dataset):
             min(size, y2 - top) / size,
         ], dtype=torch.float32)
 
+        return image, point, bbox
+    
+    def __getitem__(self, index: int):
+        filename = self.filenames[index]
+        image_path = os.path.join(self.root, "images", filename + ".jpg")
+
+        ret = {'filename': filename}
+            
+        # Load image
+        image = Image.open(image_path).convert("RGB")
+
+        if self.return_annotation or self.crop:
+            annotation_path = os.path.join(self.root, "annotations", filename + ".json")
+            with open(annotation_path) as f:
+                annotations = json.load(f)['annotations']
+            for i in range(len(annotations)):
+                annotations[i]['bbox'] = [int(x) for x in annotations[i]['bbox']]
+                annotations[i]['crop_box'] = [int(x) for x in annotations[i]['crop_box']]
+        
+        if self.crop:
+            image, point, bbox = self._crop_image(image, annotations)
+            ret['point'] = point
+            ret['bbox'] = bbox
+
+        if self.return_annotation:
+            ret['annotations'] = json.dumps(annotations)
+
         # Normalize
         image = transforms.ToTensor()(image)
+        if self.normalize:
+            image = image * 2 - 1
 
-        return {
-            'image': image,
-            'point': point,
-            'bbox': bbox,
-        }
+        ret['image'] = image
+
+        return ret

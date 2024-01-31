@@ -3,14 +3,14 @@ import torch
 from typing import *
 import utils3d
 import pipelines
-from datasets.sa1b import SAMDepthDataset
+from datasets.sa1b import SA_1B
 
 
 if __name__ == "__main__":
     from torchvision import utils
     
     rastctx = utils3d.torch.RastContext(backend='gl')
-    dataset = SAMDepthDataset("../SA-1B")
+    dataset = SA_1B("../SA-1B", image_size=512, crop=True, normalize=False)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=5, shuffle=True, num_workers=0)
     pipe = pipelines.Compose([
         pipelines.nodes.BboxVisualization(),

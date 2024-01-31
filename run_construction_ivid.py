@@ -108,13 +108,9 @@ def main(local_rank, cfg):
         pipelines.nodes.DepthPrediction(),
         pipelines.nodes.BackgroundRemoval(),
         pipelines.nodes.ForegroundPoint(),
-        pipelines.nodes.PointVisualization(),
-        pipelines.nodes.Resize(size=128),
+        pipelines.nodes.Resize(size=512),
         pipelines.nodes.FovSetting(),
         pipelines.nodes.RandomWarping(ctx=rastctx),
-        pipelines.nodes.IvidInpainting(),
-        pipelines.nodes.DepthPrediction(in_prefix='inpainted_warped_'),
-        pipelines.nodes.DepthAlignment(),
         pipelines.nodes.BackWarping(ctx=rastctx),
     ])
 

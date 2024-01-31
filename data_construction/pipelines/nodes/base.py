@@ -4,7 +4,7 @@ from typing import *
 
 
 class Node:
-    def __init__(self, in_prefix: str | List[str] = "", out_prefix: str = None):
+    def __init__(self, in_prefix: Union[str, List[str]] = "", out_prefix: str = None):
         self.in_prefix = in_prefix
         first_in_prefix = in_prefix if not isinstance(in_prefix, list) else in_prefix[0]
         self.out_prefix = out_prefix if out_prefix is not None else first_in_prefix

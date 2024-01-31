@@ -8,6 +8,7 @@ import imageio
 import OpenEXR as exr
 import Imath as exr_types
 import tempfile
+from typing import *
 
 
 __all__ = [
@@ -54,7 +55,7 @@ def pack_image(image: np.ndarray) -> bytes:
 
 def resize_image(
         image: np.ndarray,
-        size: tuple | int,
+        size: Union[tuple, int],
         resize_mode: str = 'shorter',
         resample_mode: int = Image.LANCZOS
     ) -> np.ndarray:
@@ -96,11 +97,11 @@ def resize_image(
 
 def pad_image(
         image: np.ndarray,
-        size: tuple | int,
+        size: Union[tuple, int],
         resize_mode: str = 'none',
         resample_mode: int = Image.LANCZOS,
         pad_mode: str = 'constant',
-        pad_value: int | tuple = 0
+        pad_value: Union[int, tuple] = 0
     ) -> np.ndarray:
     """
     Pad image to a given size.

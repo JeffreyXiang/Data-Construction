@@ -16,7 +16,23 @@ class FovSetting(Node):
         """
         Set field of view.
         """
-        data[f'{self.out_prefix}fov'] = self.fov
+        N = data['image'].shape[0]
+        device = data['image'].device
+
+        data[f'{self.out_prefix}fov'] = torch.tensor([self.fov] * N, dtype=torch.float32).to(device)
+        return data
+
+
+class FovRandomSetting(Node):
+    def __init__(self, out_prefix: str = "", fov_range: List[float] = [20, 70]):
+        super().__init__("", out_prefix)
+        self.fov_range = fov_range
+    
+    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+        """
+        Set random field of view.
+        """
+        data[f'{self.out_prefix}fov'] = torch.rand(data['image'].shape[0], dtype=torch.float32) * (self.fov_range[1] - self.fov_range[0]) + self.fov_range[0]
         return data
 
     
@@ -80,7 +96,7 @@ class Warping(Node):
         device = data['image'].device
 
         # Warping
-        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(torch.tensor(data['fov'])), H, W, True).to(device)
+        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device)
         extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)
         extrinsics_tgt = self.transform
         warped = utils3d.torch.warp_image_by_depth(
@@ -166,7 +182,7 @@ class RandomWarping(Warping, Node):
         N, _, H, W = data['image'].shape
         device = data['image'].device
 
-        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(torch.tensor(data['fov'])), H, W, True).to(device) # (N, 3, 3)
+        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device) # (N, 3, 3)
         extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)  # (N, 4, 4)
         uv = torch.randn(N, 1, 2).to(device) * self.noise_settings['uv'] + 0.5  # (N, 1, 2)
         depth = data['depth'][

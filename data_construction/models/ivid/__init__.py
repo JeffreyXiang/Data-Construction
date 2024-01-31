@@ -28,7 +28,7 @@ def load(model_name='sdipdogs_depth_aware_inpaint'):
 @torch.no_grad()
 def inpaint(model, image: torch.Tensor, depth: torch.Tensor, mask: torch.Tensor):
     """
-    Predict mask from image using U2NET.
+    Depth-aware inpainting using ivid.
 
     Args:
         image: (N, 3, H, W) tensor of images.
@@ -62,20 +62,20 @@ def inpaint(model, image: torch.Tensor, depth: torch.Tensor, mask: torch.Tensor)
         'y': torch.cat([image, depth], dim=1).float(),
         'mask': mask.float(),
         'mask_rgb': mask_rgb.float(),
-        'replace_rgb': (
-            0.1,
-            image.float(),
-            mask_rgb.float()
-        ),
-        'replace_depth': (
-            0.2,
-            depth.float(),
-            mask.float()
-        ),
-        'constrain_depth': (
-            0.5,
-            depth.float(),
-        ),
+        # 'replace_rgb': (
+        #     0.1,
+        #     image.float(),
+        #     mask_rgb.float()
+        # ),
+        # 'replace_depth': (
+        #     0.2,
+        #     depth.float(),
+        #     mask.float()
+        # ),
+        # 'constrain_depth': (
+        #     0.5,
+        #     depth.float(),
+        # ),
     }
     res = model.sample(N, steps=50, **args, verbose=False)
     image = res.samples[:, :3] * 0.5 + 0.5

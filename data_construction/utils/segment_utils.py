@@ -1,6 +1,12 @@
 import torch
 from ..models import rmbg
 
+__all__ = [
+    'load_u2net_model',
+    'u2net_predict_mask',
+]
+
+
 def load_u2net_model(model_name='u2net'):
     return rmbg.load(model_name)
 

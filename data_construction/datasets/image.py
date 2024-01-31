@@ -4,10 +4,9 @@ import torch
 from torchvision import transforms
 import PIL.Image as Image
 from typing import *
-import utils3d
 
 
-class ObjectImageDataset(torch.utils.data.Dataset):
+class ImageDataset(torch.utils.data.Dataset):
     """
     Dataset for images.
     """

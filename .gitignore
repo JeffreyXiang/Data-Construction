@@ -54,4 +54,5 @@ Thumbs.db
 
 *.jpg
 *.png
+./datasets/
 

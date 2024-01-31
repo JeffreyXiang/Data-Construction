@@ -9,6 +9,14 @@ except ImportError:
     print("\033[93mWarning: StableDiffusionInpaintPipeline not found. Please install diffusers.\033[0m")
 
 
+__all__ = [
+    'load_sdv2_inpaint_model',
+    'load_ivid_inpaint_model',
+    'sdv2_inpaint',
+    'ivid_inpaint',
+]
+
+
 def load_sdv2_inpaint_model(model_path="stabilityai/stable-diffusion-2-inpainting", device='cuda'):
     sdv2inpaint_model = StableDiffusionInpaintPipeline.from_pretrained(model_path, torch_dtype=torch.float16).to(device)
     return sdv2inpaint_model

@@ -8,6 +8,14 @@ from ..models.depth_anything.dpt import DepthAnything
 from ..models.depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
 
 
+__all__ = [
+    'load_zoedepth_model',
+    'load_depthanything_model',
+    'zoedepth_predict_depth',
+    'depthanything_predict_disparity',
+]
+
+
 def load_zoedepth_model(model_path="isl-org/ZoeDepth", device='cuda'):
     zeo_depth_model = torch.hub.load(model_path, "ZoeD_N", pretrained=True).eval().to(device)
     return zeo_depth_model

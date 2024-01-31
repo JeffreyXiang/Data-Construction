@@ -7,8 +7,17 @@ from PIL import Image
 import imageio
 import OpenEXR as exr
 import Imath as exr_types
-import pickle
-from torchvision import utils
+import tempfile
+
+
+__all__ = [
+    'pack_image',
+    'resize_image',
+    'pad_image',
+    'dilate_mask',
+    'erode_mask',
+    'soften_mask',
+]
 
 
 def pack_image(image: np.ndarray) -> bytes:
@@ -31,14 +40,13 @@ def pack_image(image: np.ndarray) -> bytes:
         header = exr.Header(W, H)
         header['channels'] = {ch: exr_types.Channel(exr_types.PixelType(exr.HALF)) for ch in 'RGBA'[:C]}
         header['compression'] = exr_types.Compression(exr_types.Compression.ZIP_COMPRESSION)
-        # hash with timestamp to avoid collision
-        filename = os.path.join(os.path.dirname(__file__), 'tmp', f'{hashlib.md5(image.tobytes()).hexdigest()}.exr')
-        out = exr.OutputFile(filename, header)
-        out.writePixels({ch: image[:, :, i].astype(np.float16).tobytes() for i, ch in enumerate('RGBA'[:C])})
-        out.close()
-        with open(filename, 'rb') as f:
-            data = f.read()
-        os.remove(filename)
+        with tempfile.NamedTemporaryFile() as f:
+            filename = f.name
+            out = exr.OutputFile(filename, header)
+            out.writePixels({ch: image[:, :, i].astype(np.float16).tobytes() for i, ch in enumerate('RGBA'[:C])})
+            out.close()
+            with open(filename, 'rb') as f:
+                data = f.read()
         return data
     else:
         raise NotImplementedError(f"Unsupported dtype {dtype}")

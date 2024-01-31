@@ -7,8 +7,8 @@ from skimage.filters import rank
 from skimage.morphology import disk  
 from pycocotools import mask as mask_utils
 
-from utils.segment_utils import *
-from models import segment_anything
+from ...utils.segment_utils import *
+from ...models import segment_anything
 from .base import Node
 
 
@@ -109,7 +109,7 @@ class ObjectMaskFiltering(Node):
             out_prefix: str = "objseg_",
             depth_dilate_radius: int = 16,
             depth_far_thresh: float = 0.5,
-            depth_edge_thresh: float = 0.1,
+            depth_edge_thresh: float = 0.05,
             depth_occluder_ratio_thresh: float = 0.01,
             depth_background_ratio_thresh: float = 0.75,
             min_mask_region_size=512,

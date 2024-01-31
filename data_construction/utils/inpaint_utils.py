@@ -2,7 +2,7 @@ from PIL import Image
 import numpy as np
 import torch
 import cv2
-from models import ivid
+from ..models import ivid
 try:
     from diffusers import StableDiffusionInpaintPipeline
 except ImportError:

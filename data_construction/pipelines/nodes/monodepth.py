@@ -1,7 +1,7 @@
 import torch
 from typing import *
 
-from utils.monodepth_utils import *
+from ...utils.monodepth_utils import *
 from .base import Node
 
 

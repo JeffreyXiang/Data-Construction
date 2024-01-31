@@ -1,5 +1,5 @@
 import torch
-from models import rmbg
+from ..models import rmbg
 
 def load_u2net_model(model_name='u2net'):
     return rmbg.load(model_name)

@@ -20,7 +20,7 @@ import torch.distributed as dist
 from torchvision import utils
 
 import utils3d
-import pipelines
+from data_construction import pipelines
 
 
 def setup_dist(rank, local_rank, world_size, master_addr, master_port):

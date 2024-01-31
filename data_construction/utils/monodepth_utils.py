@@ -4,8 +4,8 @@ import torch.nn.functional as F
 import numpy as np
 import cv2
 from torchvision.transforms import Compose
-from models.depth_anything.dpt import DepthAnything
-from models.depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
+from ..models.depth_anything.dpt import DepthAnything
+from ..models.depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
 
 
 def load_zoedepth_model(model_path="isl-org/ZoeDepth", device='cuda'):

@@ -1,7 +1,7 @@
 import torch
 from typing import *
 
-from utils.inpaint_utils import *
+from ...utils.inpaint_utils import *
 from .base import Node
 
     

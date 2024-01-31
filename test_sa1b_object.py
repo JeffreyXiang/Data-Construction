@@ -3,9 +3,9 @@ import torch
 from typing import *
 import time
 import utils3d
-import pipelines
-from datasets.sa1b import SA_1B
-from utils.basic_utils import *
+from data_construction import pipelines
+from data_construction.datasets.sa1b import SA_1B
+from data_construction.utils.basic_utils import *
 
 
 if __name__ == "__main__":
@@ -17,13 +17,13 @@ if __name__ == "__main__":
     pipe = pipelines.Compose([
         pipelines.nodes.DisparityPrediction(),
         pipelines.nodes.AnnotationToMask(),
-        pipelines.nodes.ObjectMaskFiltering(min_mask_region_size=512),
+        pipelines.nodes.ObjectMaskFiltering(min_mask_region_size=256),
     ])
     images = []
     smoothen_images = []
     whole_images = []
     whole_depths = []
-    NUM = 25
+    NUM = 100
     count = 0
     for i, batch in enumerate(dataloader):
         if count >= NUM: break

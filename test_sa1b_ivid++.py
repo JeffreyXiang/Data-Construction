@@ -2,8 +2,8 @@ import numpy as np
 import torch
 from typing import *
 import utils3d
-import pipelines
-from datasets.sa1b import SA_1B
+from data_construction import pipelines
+from data_construction.datasets.sa1b import SA_1B
 
 
 if __name__ == "__main__":

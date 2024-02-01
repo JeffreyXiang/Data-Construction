@@ -94,10 +94,11 @@ class Warping(Node):
         """
         N, _, H, W = data['image'].shape
         device = data['image'].device
-        if isinstance(self.ctx, utils3d.torch.RastContext):
+        if not isinstance(self.ctx, str):
             rast_ctx = self.ctx
         else:
             rast_ctx = self.get_lazy_component('rast_ctx', utils3d.torch.RastContext, init_kwargs={'backend': self.ctx}, pipe=pipe)
+            self.ctx = rast_ctx
 
         # Warping
         intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device)

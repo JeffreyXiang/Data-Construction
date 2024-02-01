@@ -1,5 +1,3 @@
-import os
-import hashlib
 import numpy as np
 import io
 import cv2
@@ -8,19 +6,143 @@ import imageio
 import OpenEXR as exr
 import Imath as exr_types
 import tempfile
+import zipfile
 from typing import *
 
 
 __all__ = [
+    # Dictionary utils
+    'dict_merge',
+    'dict_foreach',
+    'dict_reduce',
+    'dict_any',
+    'dict_all',
+    'dict_flatten',
+    # Image utils
     'pack_image',
     'resize_image',
     'pad_image',
     'dilate_mask',
     'erode_mask',
     'soften_mask',
+    # Save utils
+    'dict_save_zip',
 ]
 
 
+# Dictionary utils
+def _dict_merge(dicta, dictb, prefix=''):
+    """
+    Merge two dictionaries.
+    """
+    assert isinstance(dicta, dict), 'input must be a dictionary'
+    assert isinstance(dictb, dict), 'input must be a dictionary'
+    dict_ = {}
+    all_keys = set(dicta.keys()).union(set(dictb.keys()))
+    for key in all_keys:
+        if key in dicta.keys() and key in dictb.keys():
+            if isinstance(dicta[key], dict) and isinstance(dictb[key], dict):
+                dict_[key] = _dict_merge(dicta[key], dictb[key], prefix=f'{prefix}.{key}')
+            else:
+                raise ValueError(f'Duplicate key {prefix}.{key} found in both dictionaries. Types: {type(dicta[key])}, {type(dictb[key])}')
+        elif key in dicta.keys():
+            dict_[key] = dicta[key]
+        else:
+            dict_[key] = dictb[key]
+    return dict_
+
+
+def dict_merge(dicta, dictb):
+    """
+    Merge two dictionaries.
+    """
+    return _dict_merge(dicta, dictb, prefix='')
+
+
+def dict_foreach(dic, func, special_func={}):
+    """
+    Recursively apply a function to all non-dictionary leaf values in a dictionary.
+    """
+    assert isinstance(dic, dict), 'input must be a dictionary'
+    for key in dic.keys():
+        if isinstance(dic[key], dict):
+            dic[key] = dict_foreach(dic[key], func)
+        else:
+            if key in special_func.keys():
+                dic[key] = special_func[key](dic[key])
+            else:
+                dic[key] = func(dic[key])
+    return dic
+
+
+def dict_reduce(dicts, func, special_func={}):
+    """
+    Reduce a list of dictionaries. Leaf values must be scalars.
+    """
+    assert isinstance(dicts, list), 'input must be a list of dictionaries'
+    assert all([isinstance(d, dict) for d in dicts]), 'input must be a list of dictionaries'
+    assert len(dicts) > 0, 'input must be a non-empty list of dictionaries'
+    all_keys = set([key for dict_ in dicts for key in dict_.keys()])
+    reduced_dict = {}
+    for key in all_keys:
+        vlist = [dict_[key] for dict_ in dicts if key in dict_.keys()]
+        if isinstance(vlist[0], dict):
+            reduced_dict[key] = dict_reduce(vlist, func, special_func)
+        else:
+            if key in special_func.keys():
+                reduced_dict[key] = special_func[key](vlist)
+            else:
+                reduced_dict[key] = func(vlist)
+    return reduced_dict
+
+
+def dict_any(dic, func):
+    """
+    Recursively apply a function to all non-dictionary leaf values in a dictionary.
+    """
+    assert isinstance(dic, dict), 'input must be a dictionary'
+    for key in dic.keys():
+        if isinstance(dic[key], dict):
+            if dict_any(dic[key], func):
+                return True
+        else:
+            if func(dic[key]):
+                return True
+    return False
+
+
+def dict_all(dic, func):
+    """
+    Recursively apply a function to all non-dictionary leaf values in a dictionary.
+    """
+    assert isinstance(dic, dict), 'input must be a dictionary'
+    for key in dic.keys():
+        if isinstance(dic[key], dict):
+            if not dict_all(dic[key], func):
+                return False
+        else:
+            if not func(dic[key]):
+                return False
+    return True
+
+
+def dict_flatten(dic, sep='.'):
+    """
+    Flatten a nested dictionary into a dictionary with no nested dictionaries.
+    """
+    assert isinstance(dic, dict), 'input must be a dictionary'
+    flat_dict = {}
+    for key in dic.keys():
+        if isinstance(dic[key], dict):
+            sub_dict = dict_flatten(dic[key], sep=sep)
+            for sub_key in sub_dict.keys():
+                flat_dict[key + sep + sub_key] = sub_dict[sub_key]
+        else:
+            flat_dict[key] = dic[key]
+    return flat_dict
+
+
+# Image utils
 def pack_image(image: np.ndarray) -> bytes:
     """
     Pack image to bytes.
@@ -212,3 +334,15 @@ def soften_mask(mask, radius=10):
     new_mask = np.clip(-sdf_field + 0.5, 0, 1)
     return new_mask
 
+
+# Save utils
+def dict_save_zip(data, filename):
+    """
+    Save a dictionary to a zip file.
+    The leaf values of the dictionary can only be bytes or strings.
+    """
+    data = dict_flatten(data, sep='/')
+    with zipfile.ZipFile(filename, 'w') as f:
+        for k, v in data.items():
+            assert isinstance(v, (bytes, str)), f"Leaf value must be bytes or string. Got {type(v)} for key {k}"
+            f.writestr(k, v)

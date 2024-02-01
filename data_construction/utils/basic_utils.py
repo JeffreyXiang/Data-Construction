@@ -35,6 +35,8 @@ def pack_image(image: np.ndarray) -> bytes:
     dtype = image.dtype
     if dtype == np.uint8:
         fp = io.BytesIO()
+        if C == 1:
+            image = image.squeeze(-1)
         imageio.imwrite(fp, image, format='png')
         return fp.getvalue()
     elif dtype == np.float16:

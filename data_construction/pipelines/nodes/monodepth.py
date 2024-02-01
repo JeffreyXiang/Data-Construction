@@ -10,11 +10,12 @@ class DepthPrediction(Node):
         'zoedepth': (load_zoedepth_model, zoedepth_predict_depth),
     }
 
-    def __init__(self, in_prefix: str = "", out_prefix: str = None, model_name: str = 'zoedepth'):
+    def __init__(self, in_prefix: str = "", out_prefix: str = None, model_name: str = 'zoedepth', batch_size: int = 8):
         super().__init__(in_prefix, out_prefix)
         self.model_name = model_name
-        self.model = self.MODEL_REGISTRY[self.model_name][0]()
-        self.predict_depth = self.MODEL_REGISTRY[self.model_name][1]
+        self._model_fn, self._predict_fn = self.MODEL_REGISTRY[self.model_name]
+        self.model = None
+        self.batch_size = batch_size
     
     def __call__(self, pipe, data: Dict[str, torch.Tensor]):
         """
@@ -25,7 +26,13 @@ class DepthPrediction(Node):
         Returns:
             depth: (N, H, W) tensor of metric depth.
         """
-        depth_tensor = self.predict_depth(self.model, data[f'{self.in_prefix}image'])
+        N = data[f'{self.in_prefix}image'].shape[0]
+        if self.model is None:
+            self.model = pipe.get_shared_component(self.model_name, self._model_fn)
+        depth_tensor = []
+        for i in range(0, N, self.batch_size):
+            depth_tensor.append(self._predict_fn(self.model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
+        depth_tensor = torch.cat(depth_tensor, dim=0)
         data[f'{self.out_prefix}depth'] = depth_tensor
         return data
 
@@ -36,11 +43,12 @@ class DisparityPrediction(Node):
         'depth_anything': (load_depthanything_model, depthanything_predict_disparity),
     }
 
-    def __init__(self, in_prefix: str = "", out_prefix: str = None, model_name: str = 'depth_anything'):
+    def __init__(self, in_prefix: str = "", out_prefix: str = None, model_name: str = 'depth_anything', batch_size: int = 8):
         super().__init__(in_prefix, out_prefix)
         self.model_name = model_name
-        self.model = self.MODEL_REGISTRY[self.model_name][0]()
-        self.predict_disparity = self.MODEL_REGISTRY[self.model_name][1]
+        self._model_fn, self._predict_fn = self.MODEL_REGISTRY[self.model_name]
+        self.model = None
+        self.batch_size = batch_size
 
     def __call__(self, pipe, data: Dict[str, torch.Tensor]):
         """
@@ -51,7 +59,13 @@ class DisparityPrediction(Node):
         Returns:
             disparity: (N, H, W) tensor of disparity.
         """
-        disparity_tensor = self.predict_disparity(self.model, data[f'{self.in_prefix}image'])
+        N = data[f'{self.in_prefix}image'].shape[0]
+        if self.model is None:
+            self.model = pipe.get_shared_component(self.model_name, self._model_fn)
+        disparity_tensor = []
+        for i in range(0, N, self.batch_size):
+            disparity_tensor.append(self._predict_fn(self.model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
+        disparity_tensor = torch.cat(disparity_tensor, dim=0)
         data[f'{self.out_prefix}disparity'] = disparity_tensor
         return data
 

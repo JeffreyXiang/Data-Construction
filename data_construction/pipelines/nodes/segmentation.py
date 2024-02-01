@@ -13,9 +13,10 @@ from .base import Node
 
 
 class BackgroundRemoval(Node):
-    def __init__(self, in_prefix: str = "", out_prefix: str = "rmbg_+"):
+    def __init__(self, in_prefix: str = "", out_prefix: str = "rmbg_+", batch_size: int = 8):
         super().__init__(in_prefix, out_prefix)
-        self.model = load_u2net_model()
+        self.model = None
+        self.batch_size = batch_size
 
     def __call__(self, pipe, data: Dict[str, torch.Tensor]):
         """
@@ -27,7 +28,13 @@ class BackgroundRemoval(Node):
             rmbg_image: (N, 3, H, W) tensor of images.
             rmbg_mask: (N, H, W) tensor of masks.
         """
-        rmbg_mask = u2net_predict_mask(self.model, data[f'{self.in_prefix}image'])
+        N = data[f'{self.in_prefix}image'].shape[0]
+        if self.model is None:
+            self.model = pipe.get_shared_component('u2net', load_u2net_model)
+        rmbg_mask = []
+        for i in range(0, N, self.batch_size):
+            rmbg_mask.append(u2net_predict_mask(self.model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
+        rmbg_mask = torch.cat(rmbg_mask, dim=0)
         data[f'{self.out_prefix}image'] = data[f'{self.in_prefix}image'] * rmbg_mask.unsqueeze(1)
         data[f'{self.out_prefix}mask'] = rmbg_mask
         return data
@@ -59,8 +66,8 @@ class ForegroundPoint(Node):
 class SegmentAnything(Node):
     def __init__(self, in_prefix: str = "", out_prefix: str = ""):
         super().__init__(in_prefix, out_prefix)
-        self.model = segment_anything.load()
-        self.segmentor = segment_anything.SamAutomaticMaskGenerator(self.model)
+        self.model = None
+        self.segmentor = None
 
     def __call__(self, pipe, data: Dict[str, torch.Tensor]):
         """
@@ -71,6 +78,10 @@ class SegmentAnything(Node):
         Returns:
             seg_masks: list of MaskData
         """
+        if self.segmentor is None:
+            self.model = pipe.get_shared_component('segment_anything', segment_anything.load)
+            self.segmentor = segment_anything.SamAutomaticMaskGenerator(self.model)
+
         seg_masks = []
         for i in data[f'{self.in_prefix}image']:
             seg_masks.append(self.segmentor.generate(i))

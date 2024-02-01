@@ -37,7 +37,7 @@ class FovRandomSetting(Node):
 
     
 class Warping(Node):
-    def __init__(self, in_prefix: str = "", out_prefix: str = "warped_+", ctx=None, transform: torch.Tensor = None, mask_cfg_override: Dict[str, float] = {}):
+    def __init__(self, in_prefix: str = "", out_prefix: str = "warped_+", ctx='cuda', transform: torch.Tensor = None, mask_cfg_override: Dict[str, float] = {}):
         super().__init__(in_prefix, out_prefix)
         
         DEFAULT_MASK_CFG = {
@@ -49,7 +49,7 @@ class Warping(Node):
             'erosion_radius': 0,
         }
         
-        self.ctx = utils3d.torch.RastContext(backend='gl') if ctx is None else ctx
+        self.ctx = ctx
         self.transform = transform
         self.mask_cfg = DEFAULT_MASK_CFG.copy()
         self.mask_cfg.update(mask_cfg_override)

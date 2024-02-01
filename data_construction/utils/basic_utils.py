@@ -1,13 +1,13 @@
+import os
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '1'
+from typing import *
+
 import numpy as np
-import io
 import cv2
 from PIL import Image
-import imageio
-import OpenEXR as exr
-import Imath as exr_types
-import tempfile
 import zipfile
 from typing import *
+
 
 
 __all__ = [
@@ -20,6 +20,7 @@ __all__ = [
     'dict_flatten',
     # Image utils
     'pack_image',
+    'unpack_image',
     'resize_image',
     'pad_image',
     'dilate_mask',
@@ -145,75 +146,57 @@ def dict_flatten(dic, sep='.'):
 # Image utils
 def pack_image(image: np.ndarray) -> bytes:
     """
-    Pack image to bytes.
+    Pack image to bytes. NOTE: Input channels are in RGBA order.
 
     Args:
         image (np.ndarray): Image to pack.
     Returns:
         data (bytes): Packed image.
     """
-    H, W, C = image.shape if len(image.shape) == 3 else (*image.shape, 1)
-    image = image.reshape(H, W, C)
+    C = image.shape[2] if image.ndim == 3 else 1
+    assert C in [1, 3, 4], "Image must have 1, 3, or 4 channels."
+    # RGBA -> BGRA
+    if C == 4:
+        image = image[..., [2, 1, 0, 3]]
+    elif C == 3:
+        image = image[..., [2, 1, 0]]
+
     dtype = image.dtype
-    if dtype == np.uint8:
-        fp = io.BytesIO()
-        if C == 1:
-            image = image.squeeze(-1)
-        imageio.imwrite(fp, image, format='png')
-        return fp.getvalue()
+    if dtype == np.bool_:
+        flag, data = cv2.imencode('.png', image.astype(np.uint8) * 255, (cv2.IMWRITE_PNG_BILEVEL, 1))
+    elif dtype == np.uint8 or dtype == np.uint16:
+        flag, data = cv2.imencode('.png', image, (cv2.IMWRITE_PNG_COMPRESSION, 9))
     elif dtype == np.float16:
-        header = exr.Header(W, H)
-        header['channels'] = {ch: exr_types.Channel(exr_types.PixelType(exr.HALF)) for ch in 'RGBA'[:C]}
-        header['compression'] = exr_types.Compression(exr_types.Compression.ZIP_COMPRESSION)
-        with tempfile.NamedTemporaryFile() as f:
-            filename = f.name
-            out = exr.OutputFile(filename, header)
-            out.writePixels({ch: image[:, :, i].astype(np.float16).tobytes() for i, ch in enumerate('RGBA'[:C])})
-            out.close()
-            with open(filename, 'rb') as f:
-                data = f.read()
-        return data
+        flag, data = cv2.imencode('.exr', image.astype(np.float32), (cv2.IMWRITE_EXR_TYPE, cv2.IMWRITE_EXR_TYPE_HALF))
+    elif dtype == np.float32:
+        flag, data = cv2.imencode('.exr', image, (cv2.IMWRITE_EXR_TYPE, cv2.IMWRITE_EXR_TYPE_FLOAT))
     else:
         raise NotImplementedError(f"Unsupported dtype {dtype}")
 
+    if not flag:
+        raise ValueError("Failed to encode image.")
+    return data.tobytes()
+    
     
 def unpack_image(data: bytes) -> np.ndarray:
     """
-    Unpack image from bytes.
+    Unpack image from bytes. NOTE: Output channels are in RGBA order.
 
     Args:
         data (bytes): Packed image.
     Returns:
         image (np.ndarray): Unpacked image.
     """
-    SUPPORTED_HEADER = {
-        'png': b'\x89PNG\r\n\x1a\n',
-        'exr': b'\x76\x2f\x31\x01',
-    }
-
-    type_ = 'unknown'
-    for ext, header in SUPPORTED_HEADER.items():
-        if data[:len(header)] == header:
-            type_ = ext
-            break
-
-    if type_ == 'png':
-        image = imageio.imread(io.BytesIO(data))
-    elif type_ == 'exr':
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(data)
-            f.seek(0)
-            dr = exr.InputFile(f.name)
-            header = dr.header()
-            W, H = header['dataWindow'].max.x - header['dataWindow'].min.x + 1, header['dataWindow'].max.y - header['dataWindow'].min.y + 1
-            C = len(header['channels'])
-            image = np.zeros((H, W, C), dtype=np.float16)
-            for i, ch in enumerate('RGBA'[:C]):
-                image[:, :, i] = np.frombuffer(dr.channel(ch), dtype=np.float16).reshape(H, W)
-            if C == 1:
-                image = image.squeeze(-1)
-    else:
-        raise NotImplementedError(f"Unsupported image type")
+    image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_UNCHANGED)
+    if image is None:
+        raise ValueError("Failed to decode image.")
+    
+    C = image.shape[2] if image.ndim == 3 else 1
+    # BGRA -> RGBA
+    if C == 4:
+        image = image[..., [2, 1, 0, 3]]
+    elif C == 3:
+        image = image[..., [2, 1, 0]]
 
     return image
     

@@ -53,6 +53,47 @@ def pack_image(image: np.ndarray) -> bytes:
         return data
     else:
         raise NotImplementedError(f"Unsupported dtype {dtype}")
+
+    
+def unpack_image(data: bytes) -> np.ndarray:
+    """
+    Unpack image from bytes.
+
+    Args:
+        data (bytes): Packed image.
+    Returns:
+        image (np.ndarray): Unpacked image.
+    """
+    SUPPORTED_HEADER = {
+        'png': b'\x89PNG\r\n\x1a\n',
+        'exr': b'\x76\x2f\x31\x01',
+    }
+
+    type_ = 'unknown'
+    for ext, header in SUPPORTED_HEADER.items():
+        if data[:len(header)] == header:
+            type_ = ext
+            break
+
+    if type_ == 'png':
+        image = imageio.imread(io.BytesIO(data))
+    elif type_ == 'exr':
+        with tempfile.NamedTemporaryFile() as f:
+            f.write(data)
+            f.seek(0)
+            dr = exr.InputFile(f.name)
+            header = dr.header()
+            W, H = header['dataWindow'].max.x - header['dataWindow'].min.x + 1, header['dataWindow'].max.y - header['dataWindow'].min.y + 1
+            C = len(header['channels'])
+            image = np.zeros((H, W, C), dtype=np.float16)
+            for i, ch in enumerate('RGBA'[:C]):
+                image[:, :, i] = np.frombuffer(dr.channel(ch), dtype=np.float16).reshape(H, W)
+            if C == 1:
+                image = image.squeeze(-1)
+    else:
+        raise NotImplementedError(f"Unsupported image type")
+
+    return image
     
 
 def resize_image(

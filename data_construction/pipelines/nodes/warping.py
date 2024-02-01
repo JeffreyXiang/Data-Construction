@@ -92,8 +92,8 @@ class Warping(Node):
             warped_uv: (N, 2, H, W) tensor of warped uv.
             warped_dr: (N, 6, H, W) tensor of warping image-space derivatives (du/dx, du/dy, dv/dx, dv/dy, l', s').
         """
-        N, _, H, W = data['image'].shape
-        device = data['image'].device
+        N, _, H, W = data[f'{self.in_prefix}image'].shape
+        device = data[f'{self.in_prefix}image'].device
         if not isinstance(self.ctx, str):
             rast_ctx = self.ctx
         else:
@@ -184,8 +184,8 @@ class RandomWarping(Warping, Node):
             warped_uv: (N, 2, H, W) tensor of warped uv.
             warped_dr: (N, 6, H, W) tensor of warping image-space derivatives (du/dx, du/dy, dv/dx, dv/dy, l', s').
         """
-        N, _, H, W = data['image'].shape
-        device = data['image'].device
+        N, _, H, W = data[f'{self.in_prefix}image'].shape
+        device = data[f'{self.in_prefix}image'].device
 
         intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device) # (N, 3, 3)
         extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)  # (N, 4, 4)
@@ -241,8 +241,8 @@ class BackWarping(Warping, Node):
         data = super().__call__(data, pipe=pipe)
 
         # Cascade uv
-        N, _, H, W = data['image'].shape
-        device = data['image'].device
+        N, _, H, W = data[f'{self.in_prefix}image'].shape
+        device = data[f'{self.in_prefix}image'].device
         uv = data[f'{self.uv_prefix}uv']
         mask = data[f'{self.uv_prefix}mask']
         uvm = torch.cat([uv, mask.float().unsqueeze(1)], dim=1)

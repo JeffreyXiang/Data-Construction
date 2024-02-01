@@ -10,7 +10,7 @@ class Resize(Node):
         super().__init__(in_prefix, out_prefix)
         self.size = size
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Resize image.
 
@@ -31,7 +31,7 @@ class Replicate(Node):
         super().__init__()
         self.times = times
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Replicate image.
 

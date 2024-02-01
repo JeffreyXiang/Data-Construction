@@ -12,7 +12,7 @@ class FovSetting(Node):
         super().__init__("", out_prefix)
         self.fov = fov
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Set field of view.
         """
@@ -28,7 +28,7 @@ class FovRandomSetting(Node):
         super().__init__("", out_prefix)
         self.fov_range = fov_range
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Set random field of view.
         """
@@ -77,7 +77,7 @@ class Warping(Node):
         mask[:, :-1, 1:] += mask_
         return mask < 3
 
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Warp image using depth.
 
@@ -163,7 +163,7 @@ class RandomWarping(Warping, Node):
         self.noise_settings = DEFAULT_NOISE.copy()
         self.noise_settings.update(noise_override)
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Warp image using depth.
 
@@ -212,7 +212,7 @@ class BackWarping(Warping, Node):
         super().__init__(in_prefix[0], out_prefix, ctx, None, mask_cfg_override)
         self.uv_prefix = in_prefix[1]
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Backwarping.
 

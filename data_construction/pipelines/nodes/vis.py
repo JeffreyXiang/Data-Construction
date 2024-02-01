@@ -8,7 +8,7 @@ class PointVisualization(Node):
     def __init__(self, in_prefix: str = "", out_prefix: str = "+point_"):
         super().__init__(in_prefix, out_prefix)
 
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Show point.
 
@@ -32,7 +32,7 @@ class BboxVisualization(Node):
     def __init__(self, in_prefix: str = "", out_prefix: str = "+bbox_"):
         super().__init__(in_prefix, out_prefix)
 
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Show bbox.
 

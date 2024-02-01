@@ -14,10 +14,9 @@ class DepthPrediction(Node):
         super().__init__(in_prefix, out_prefix)
         self.model_name = model_name
         self._model_fn, self._predict_fn = self.MODEL_REGISTRY[self.model_name]
-        self.model = None
         self.batch_size = batch_size
     
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Predict depth from image using ZoeDepth.
 
@@ -27,11 +26,10 @@ class DepthPrediction(Node):
             depth: (N, H, W) tensor of metric depth.
         """
         N = data[f'{self.in_prefix}image'].shape[0]
-        if self.model is None:
-            self.model = pipe.get_shared_component(self.model_name, self._model_fn)
+        model = self.get_lazy_component(self.model_name, self._model_fn, pipe=pipe)
         depth_tensor = []
         for i in range(0, N, self.batch_size):
-            depth_tensor.append(self._predict_fn(self.model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
+            depth_tensor.append(self._predict_fn(model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
         depth_tensor = torch.cat(depth_tensor, dim=0)
         data[f'{self.out_prefix}depth'] = depth_tensor
         return data
@@ -47,10 +45,9 @@ class DisparityPrediction(Node):
         super().__init__(in_prefix, out_prefix)
         self.model_name = model_name
         self._model_fn, self._predict_fn = self.MODEL_REGISTRY[self.model_name]
-        self.model = None
         self.batch_size = batch_size
 
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Predict depth from image using DepthAnything.
 
@@ -60,11 +57,10 @@ class DisparityPrediction(Node):
             disparity: (N, H, W) tensor of disparity.
         """
         N = data[f'{self.in_prefix}image'].shape[0]
-        if self.model is None:
-            self.model = pipe.get_shared_component(self.model_name, self._model_fn)
+        model = self.get_lazy_component(self.model_name, self._model_fn, pipe=pipe)
         disparity_tensor = []
         for i in range(0, N, self.batch_size):
-            disparity_tensor.append(self._predict_fn(self.model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
+            disparity_tensor.append(self._predict_fn(model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
         disparity_tensor = torch.cat(disparity_tensor, dim=0)
         data[f'{self.out_prefix}disparity'] = disparity_tensor
         return data
@@ -74,7 +70,7 @@ class DepthAlignment(Node):
     def __init__(self, in_prefix: List[str] = ["inpainted_warped_", "warped_"], out_prefix: str = None):
         super().__init__(in_prefix, out_prefix)
 
-    def __call__(self, pipe, data: Dict[str, torch.Tensor]):
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
         Align depth.
 

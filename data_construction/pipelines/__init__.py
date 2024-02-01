@@ -75,7 +75,7 @@ class Compose(Pipeline):
         for module in self.nodes:
             if timing:
                 start = time.time()
-            data = module(self, data)
+            data = module(data, pipe=self)
             if timing:
                 print(f"{module.__class__.__name__}: {time.time() - start:.3f} sec")
         return data

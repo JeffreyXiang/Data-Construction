@@ -94,13 +94,17 @@ class Warping(Node):
         """
         N, _, H, W = data['image'].shape
         device = data['image'].device
+        if isinstance(self.ctx, utils3d.torch.RastContext):
+            rast_ctx = self.ctx
+        else:
+            rast_ctx = self.get_lazy_component('rast_ctx', utils3d.torch.RastContext, init_kwargs={'backend': self.ctx}, pipe=pipe)
 
         # Warping
         intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device)
         extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)
         extrinsics_tgt = self.transform
         warped = utils3d.torch.warp_image_by_depth(
-            self.ctx,
+            rast_ctx,
             data[f'{self.in_prefix}depth'],
             data[f'{self.in_prefix}image'],
             extrinsics_src=extrinsics_src,
@@ -150,7 +154,7 @@ class Warping(Node):
     
 
 class RandomWarping(Warping, Node):
-    def __init__(self, in_prefix: str = "", out_prefix: str = "warped_+", ctx=None, noise_override: Dict[str, float] = {}, mask_cfg_override: Dict[str, float] = {}):
+    def __init__(self, in_prefix: str = "", out_prefix: str = "warped_+", ctx='cuda', noise_override: Dict[str, float] = {}, mask_cfg_override: Dict[str, float] = {}):
         super().__init__(in_prefix, out_prefix, ctx, None, mask_cfg_override)
         DEFAULT_NOISE = {
             'uv': 0.10,
@@ -208,7 +212,7 @@ class RandomWarping(Warping, Node):
 
 
 class BackWarping(Warping, Node):
-    def __init__(self, in_prefix: List[str] = ["inpainted_warped_", "warped_"], out_prefix: str = "backwarped_+", ctx=None, mask_cfg_override: Dict[str, float] = {}):
+    def __init__(self, in_prefix: List[str] = ["inpainted_warped_", "warped_"], out_prefix: str = "backwarped_+", ctx='cuda', mask_cfg_override: Dict[str, float] = {}):
         super().__init__(in_prefix[0], out_prefix, ctx, None, mask_cfg_override)
         self.uv_prefix = in_prefix[1]
     

@@ -203,7 +203,7 @@ class RandomWarping(Warping, Node):
         data['transform'] = extrinsics_tgt
 
         self.transform = extrinsics_tgt
-        data = super().__call__(pipe, data)
+        data = super().__call__(data, pipe=pipe)
         return data
 
 
@@ -233,7 +233,7 @@ class BackWarping(Warping, Node):
         """
         transform = data['transform']
         self.transform = torch.inverse(transform)
-        data = super().__call__(pipe, data)
+        data = super().__call__(data, pipe=pipe)
 
         # Cascade uv
         N, _, H, W = data['image'].shape

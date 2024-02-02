@@ -5,4 +5,5 @@ from .monodepth import *
 from .segmentation import *
 from .vis import *
 from .warping import *
+from .image_captioner import *
 from .base import Node

@@ -85,5 +85,19 @@ class DepthAlignment(Node):
         mean_second = data[f'{self.in_prefix[0]}depth'][data[f'{self.in_prefix[1]}mask']].mean()
         data[f'{self.out_prefix}depth'] *= mean_first / mean_second
         return data
+
+
+class NormalizeDepth(Node):
+    def __init__(self, in_key: str = "depth", out_key: str = "depth"):
+        super().__init__()
+        self.in_key = in_key
+        self.out_key = out_key
+    
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
+        """
+        Normalize depth median to 1.
+        """
+        data[self.out_key] = data[self.in_key] / data[self.in_key].flatten(-2).median(dim=-1)[0][..., None, None]
+        return data
     
 

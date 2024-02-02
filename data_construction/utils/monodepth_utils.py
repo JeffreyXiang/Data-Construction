@@ -1,9 +1,12 @@
 from typing import *
-import torch
-import torch.nn.functional as F
+
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import cv2
 from torchvision.transforms import Compose
+
 from ..models.depth_anything.dpt import DepthAnything
 from ..models.depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
 
@@ -17,8 +20,12 @@ __all__ = [
 
 
 def load_zoedepth_model(model_path="isl-org/ZoeDepth", device='cuda'):
-    zeo_depth_model = torch.hub.load(model_path, "ZoeD_N", pretrained=True).eval().to(device)
-    return zeo_depth_model
+    model_zoe_nk = torch.hub.load(model_path, "ZoeD_NK", pretrained=False)
+    pretrained_dict = torch.hub.load_state_dict_from_url('https://github.com/isl-org/ZoeDepth/releases/download/v1.0/ZoeD_M12_NK.pt', map_location='cpu')
+    model_zoe_nk.load_state_dict(pretrained_dict['model'], strict=False)
+    for b in model_zoe_nk.core.core.pretrained.model.blocks:
+        b.drop_path = nn.Identity()
+    return model_zoe_nk.to(device).eval()
 
 
 def load_depthanything_model(model_path="LiheYoung/depth_anything_vitl14", device='cuda'):

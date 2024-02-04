@@ -10,11 +10,12 @@ class DepthPrediction(Node):
         'zoedepth': (load_zoedepth_model, zoedepth_predict_depth),
     }
 
-    def __init__(self, in_prefix: str = "", out_prefix: str = None, model_name: str = 'zoedepth', batch_size: int = 8):
+    def __init__(self, in_prefix: str = "", out_prefix: str = None, model_name: str = 'zoedepth', batch_size: int = 8, device: Union[str, torch.device] = 'cuda'):
         super().__init__(in_prefix, out_prefix)
         self.model_name = model_name
         self._model_fn, self._predict_fn = self.MODEL_REGISTRY[self.model_name]
         self.batch_size = batch_size
+        self.device = device
     
     def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
@@ -26,10 +27,10 @@ class DepthPrediction(Node):
             depth: (N, H, W) tensor of metric depth.
         """
         N = data[f'{self.in_prefix}image'].shape[0]
-        model = self.get_lazy_component(self.model_name, self._model_fn, pipe=pipe)
+        model = self.get_lazy_component(self.model_name, self._model_fn, init_kwargs={'device': self.device}, pipe=pipe)
         depth_tensor = []
         for i in range(0, N, self.batch_size):
-            depth_tensor.append(self._predict_fn(model, data[f'{self.in_prefix}image'][i:i+self.batch_size]))
+            depth_tensor.append(self._predict_fn(model, data[f'{self.in_prefix}image'][i:i + self.batch_size]))
         depth_tensor = torch.cat(depth_tensor, dim=0)
         data[f'{self.out_prefix}depth'] = depth_tensor
         return data

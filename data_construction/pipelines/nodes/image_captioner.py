@@ -79,7 +79,7 @@ def qwen_predict_caption(model, tokenizer, images: torch.Tensor, *, max_new_leng
         query = tokenizer.from_list_format([
             {
                 'image': image_files[i].name,
-                'text': 'Describe the contents in the image breifly.'
+                'text': 'Briefly caption this image.'
             }
         ])
         raw_text, context_tokens = qwen_generation_utils.make_context(
@@ -121,11 +121,12 @@ def qwen_predict_caption(model, tokenizer, images: torch.Tensor, *, max_new_leng
 
 
 class MiniCPMVCaptioner(Node):
-    def __init__(self, image_key: str = "image", caption_key: str = "caption", batch_size: int = 32):
+    def __init__(self, image_key: str = "image", caption_key: str = "caption", batch_size: int = 32, device: Union[str, torch.device] = 'cuda'):
         super().__init__()
         self.image_key = image_key
         self.caption_key = caption_key
         self.batch_size = batch_size
+        self.device = device
     
     def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
         """
@@ -137,7 +138,12 @@ class MiniCPMVCaptioner(Node):
             depth: (N, H, W) tensor of metric depth.
         """
         n_images = data[self.image_key].shape[0]
-        model, tokenizer = self.get_lazy_component('mini-cpm-v', load_minicpmv_model_tokenizer, pipe=pipe)
+        model, tokenizer = self.get_lazy_component(
+            'mini-cpm-v', 
+            load_minicpmv_model_tokenizer, 
+            init_kwargs={'device': self.device}, 
+            pipe=pipe
+        )
         captions = []
         for i in range(0, n_images, self.batch_size):
             captions.extend(minicpmv_predict_caption(model, tokenizer, data[self.image_key][i:i + self.batch_size]))

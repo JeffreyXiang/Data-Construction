@@ -189,10 +189,10 @@ class RandomWarping(Warping, Node):
         N, _, H, W = data[f'{self.in_prefix}image'].shape
         device = data[f'{self.in_prefix}image'].device
 
-        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device) # (N, 3, 3)
-        extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)  # (N, 4, 4)
+        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device)   # (N, 3, 3)
+        extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)          # (N, 4, 4)
 
-        center_uv = torch.randn(N, 1, 2).to(device) * self.noise_settings['uv'] + 0.5  # (N, 1, 2)
+        center_uv = torch.randn(N, 1, 2).to(device) * self.noise_settings['uv'] + 0.5                       # (N, 1, 2)
         if 'point' in data:
             center_depth = data['depth'][
                 torch.arange(N),
@@ -201,14 +201,14 @@ class RandomWarping(Warping, Node):
             ][..., None]  # (N, 1)
         else:
             center_depth = torch.ones(N, 1).to(data['depth'])
-        center_depth *= torch.randn(N, 1).to(device) * self.noise_settings['depth'] + 1.0  # (N, 1)
-        center = utils3d.torch.unproject_cv(center_uv, center_depth, extrinsics_src, intrinsics).squeeze(-2)  # (N, 3)
+        center_depth *= torch.randn(N, 1).to(device) * self.noise_settings['depth'] + 1.0                   # (N, 1)
+        center = utils3d.torch.unproject_cv(center_uv, center_depth, extrinsics_src, intrinsics).squeeze(-2)# (N, 3)
         yaw = torch.randn(N).to(device) * math.radians(self.noise_settings['yaw'])
         pitch = torch.randn(N).to(device) * math.radians(self.noise_settings['pitch']) 
         roll = torch.randn(N).to(device) * math.radians(self.noise_settings['roll'])
-        R = utils3d.torch.euler_angles_to_matrix(torch.stack([pitch, yaw, roll], dim=-1), 'ZXY')  # (N, 3, 3)
+        R = utils3d.torch.euler_angles_to_matrix(torch.stack([pitch, yaw, roll], dim=-1), 'ZXY')            # (N, 3, 3)
         T = center + (R @ -center.unsqueeze(-1)).squeeze(-1) * (torch.randn(N).to(device) * self.noise_settings['radius'] + 1.0).unsqueeze(-1)  # (N, 3)
-        extrinsics_tgt = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)  # (N, 4, 4)
+        extrinsics_tgt = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)          # (N, 4, 4)
         extrinsics_tgt[:, :3, :3] = R
         extrinsics_tgt[:, :3, 3] = T
         data['transform'] = extrinsics_tgt

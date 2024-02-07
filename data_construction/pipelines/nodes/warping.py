@@ -169,7 +169,7 @@ class RandomWarping(Warping, Node):
         ctx: Literal['gl', 'cuda'] = 'cuda',  
         noise_override: Dict[str, float] = {}, mask_cfg_override: Dict[str, float] = {}
     ):
-        super().__init__(in_prefix, out_prefix, ctx, None, mask_cfg_override)
+        super().__init__(in_image_key, in_depth_key, out_image_key, out_depth_key, out_mask_key, out_uv_key, out_dr_key, ctx, None, mask_cfg_override)
         DEFAULT_NOISE = {
             'uv': 0.10,
             'depth': 0.10,

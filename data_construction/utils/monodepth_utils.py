@@ -18,7 +18,7 @@ __all__ = [
     'load_depthanything_model',
     'zoedepth_predict_depth',
     'depthanything_predict_disparity',
-    'load_depthanything_metric_depth_model'
+    'load_depthanything_metric_depth_model',
     'depthanything_predict_depth'
 ]
 

@@ -39,8 +39,15 @@ class FovRandomSetting(Node):
 
     
 class Warping(Node):
-    def __init__(self, in_prefix: str = "", out_prefix: str = "warped_+", ctx='cuda', transform: torch.Tensor = None, mask_cfg_override: Dict[str, float] = {}):
-        super().__init__(in_prefix, out_prefix)
+    def __init__(self, 
+        in_image_key: str = "image", in_depth_key: str = "depth", 
+        out_image_key: str = "warped_image", out_depth_key: str = "warped_depth", out_mask_key: str = "warped_mask", 
+        out_uv_key: str = "warped_uv", out_dr_key: str = "warped_dr", 
+        ctx: Literal['gl', 'cuda'] = 'cuda', 
+        transform: torch.Tensor = None, 
+        mask_cfg_override: Dict[str, float] = {}
+    ):
+        super().__init__()
         
         DEFAULT_MASK_CFG = {
             'stretching_thresh': 2,
@@ -50,10 +57,17 @@ class Warping(Node):
             },
             'erosion_radius': 0,
         }
-        
+        self.in_image_key = in_image_key
+        self.in_depth_key = in_depth_key
+        self.out_image_key = out_image_key
+        self.out_depth_key = out_depth_key
+        self.out_mask_key = out_mask_key
+        self.out_uv_key = out_uv_key
+        self.out_dr_key = out_dr_key
+
         self.ctx = ctx
         self.transform = transform
-        self.mask_cfg = DEFAULT_MASK_CFG.copy()
+        self.mask_cfg = DEFAULT_MASK_CFG
         self.mask_cfg.update(mask_cfg_override)
 
     @staticmethod
@@ -94,8 +108,8 @@ class Warping(Node):
             warped_uv: (N, 2, H, W) tensor of warped uv.
             warped_dr: (N, 6, H, W) tensor of warping image-space derivatives (du/dx, du/dy, dv/dx, dv/dy, l', s').
         """
-        N, _, H, W = data[f'{self.in_prefix}image'].shape
-        device = data[f'{self.in_prefix}image'].device
+        N, _, H, W = data[self.in_image_key].shape
+        device = data[self.in_image_key].device
         if not isinstance(self.ctx, str):
             rast_ctx = self.ctx
         else:
@@ -106,10 +120,10 @@ class Warping(Node):
         intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device)
         extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)
         extrinsics_tgt = self.transform
-        warped = utils3d.torch.warp_image_by_depth(
+        warped_image, warped_depth, warped_mask, warped_uv, warped_dr = utils3d.torch.warp_image_by_depth(
             rast_ctx,
-            data[f'{self.in_prefix}depth'],
-            data[f'{self.in_prefix}image'],
+            data[self.in_depth_key],
+            data[self.in_image_key],
             extrinsics_src=extrinsics_src,
             extrinsics_tgt=extrinsics_tgt,
             intrinsics_src=intrinsics,
@@ -119,48 +133,122 @@ class Warping(Node):
             padding=2 * max(H, W),
         )
 
-        data[f'{self.out_prefix}image'] = warped[0]
-        data[f'{self.out_prefix}depth'] = warped[1]
-        data[f'{self.out_prefix}uv'] = warped[3]
+        data[self.out_image_key] = warped_image
+        data[self.out_depth_key] = warped_depth
+        data[self.out_uv_key] = warped_uv
 
-        # Calculate Derivatives
-        dudx = warped[4][:, 0] * W
-        dudy = warped[4][:, 1] * H
-        dvdx = warped[4][:, 2] * W
-        dvdy = warped[4][:, 3] * H
-        ## least singular value of the Jacobian of the warp
-        l_prime = torch.sqrt(torch.clamp(
-            dudx**2 + dudy**2 + dvdx**2 + dvdy**2 -
-            torch.sqrt(torch.clamp(
-                (dudx**2 + dudy**2 - dvdx**2 - dvdy**2)**2 +
-                4 * (dudx * dvdx + dudy * dvdy)**2,
-                min=0.0)
-            ), min=0.0)
-        ) * np.sqrt(0.5)
-        ## determinant of the Jacobian of the warp
-        s_prime = dudx * dvdy - dudy * dvdx
-        data[f'{self.out_prefix}dr'] = torch.stack([dudx, dudy, dvdx, dvdy, l_prime, s_prime], dim=1).reshape(N, 6, H, W)
+        # Use the smaller singular value of 2x2 deformation matrix [[du/dx, du/dy], [dv/dx, dv/dy]] to meature the stretch (while the larger singular value means compression)
+        dudx, dudy, dvdx, dvdy = (warped_dr * torch.tensor([W, H, W, H]).to(warped_dr)).unbind(dim=-1)
+        s1 = dudx ** 2 + dudy ** 2 + dvdx ** 2 + dvdy ** 2
+        s2 = ((dudx ** 2 + dudy ** 2 - dvdx ** 2 - dvdy ** 2) ** 2 + 4 * (dudx * dvdx + dudy * dvdy) ** 2) ** 0.5
+        l_prime = (0.5 * (s1 - s2).abs()) ** 0.5        # least singular value
+        s_prime = dudx * dvdy - dudy * dvdx             # determinant 
+
+        data[self.out_dr_key] = torch.stack([dudx, dudy, dvdx, dvdy, l_prime, s_prime], dim=1).reshape(N, 6, H, W)
         
         # Masking
         ## stretching caused by warping
         if self.mask_cfg['stretching_thresh'] is not None:
-            mask = warped[2] * (l_prime > 1 / self.mask_cfg['stretching_thresh']) * (s_prime < 0)
+            mask = warped_mask * (l_prime > 1 / self.mask_cfg['stretching_thresh']) * (s_prime < 0)
         ## depth difference
         if self.mask_cfg['depth_diff_thresh'] is not None:
-            mask *= self._get_depth_diff_mask(warped[1], **self.mask_cfg['depth_diff_thresh'])
+            mask *= self._get_depth_diff_mask(warped_depth, **self.mask_cfg['depth_diff_thresh'])
         ## erosion
         if self.mask_cfg['erosion_radius'] is not None and self.mask_cfg['erosion_radius'] > 0:
-            mask = F.max_pool2d(~mask.unsqueeze(1)*1.0, 2 * self.mask_cfg['erosion_radius'] + 1, stride=1, padding=self.mask_cfg['erosion_radius']).squeeze(1) < 0.5
-        data[f'{self.out_prefix}mask'] = mask
+            mask = F.max_pool2d(~mask.unsqueeze(1).float(), 2 * self.mask_cfg['erosion_radius'] + 1, stride=1, padding=self.mask_cfg['erosion_radius']).squeeze(1) < 0.5
+        data[self.out_mask_key] = mask
 
         return data
     
 
 class RandomWarping(Warping, Node):
-    def __init__(self, in_prefix: str = "", out_prefix: str = "warped_+", ctx='cuda', noise_override: Dict[str, float] = {}, mask_cfg_override: Dict[str, float] = {}):
+    def __init__(self,  
+        in_image_key: str = "image", in_depth_key: str = "depth", 
+        out_image_key: str = "warped_image", out_depth_key: str = "warped_depth", out_mask_key: str = "warped_mask", 
+        out_uv_key: str = "warped_uv", out_dr_key: str = "warped_dr", 
+        ctx: Literal['gl', 'cuda'] = 'cuda',  
+        noise_override: Dict[str, float] = {}, mask_cfg_override: Dict[str, float] = {}
+    ):
         super().__init__(in_prefix, out_prefix, ctx, None, mask_cfg_override)
         DEFAULT_NOISE = {
             'uv': 0.10,
+            'depth': 0.10,
+            'radius': 0.10,
+            'yaw': 30,
+            'pitch': 10,
+            'roll': 5,
+        }
+        self.noise_settings = DEFAULT_NOISE.copy()
+        self.noise_settings.update(noise_override)
+    
+    def __call__(self, data: Dict[str, torch.Tensor], pipe=None):
+        """
+        Warp image using depth.
+
+        Args:
+            image: (N, 3, H, W) tensor of images.
+            depth: (N, H, W) tensor of linearized depth.
+            point: (N, 2) tensor of points.
+            fov: (N) tensor of field of view.
+        Returns:
+            warped_image: (N, 3, H, W) tensor of warped images.
+            warped_depth: (N, H, W) tensor of warped depth.
+            warped_mask: (N, H, W) tensor of warped mask.
+            warped_uv: (N, 2, H, W) tensor of warped uv.
+            warped_dr: (N, 6, H, W) tensor of warping image-space derivatives (du/dx, du/dy, dv/dx, dv/dy, l', s').
+        """
+        N, _, H, W = data[f'{self.in_prefix}image'].shape
+        device = data[f'{self.in_prefix}image'].device
+
+        intrinsics = utils3d.torch.intrinsics_from_fov(torch.deg2rad(data['fov']), H, W, True).to(device)   # (N, 3, 3)
+        extrinsics_src = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)          # (N, 4, 4)
+
+        center_uv = torch.randn(N, 1, 2).to(device) * self.noise_settings['uv'] + 0.5                       # (N, 1, 2)
+        if 'point' in data:
+            center_depth = data['depth'][
+                torch.arange(N),
+                torch.floor(data['point'][..., 1] * H).long(),
+                torch.floor(data['point'][..., 0] * W).long(),
+            ][..., None]  # (N, 1)
+        else:
+            center_depth = torch.ones(N, 1).to(data['depth'])
+        center_depth *= torch.randn(N, 1).to(device) * self.noise_settings['depth'] + 1.0                   # (N, 1)
+        center = utils3d.torch.unproject_cv(center_uv, center_depth, extrinsics_src, intrinsics).squeeze(-2)# (N, 3)
+        yaw = torch.randn(N).to(device) * math.radians(self.noise_settings['yaw'])
+        pitch = torch.randn(N).to(device) * math.radians(self.noise_settings['pitch']) 
+        roll = torch.randn(N).to(device) * math.radians(self.noise_settings['roll'])
+        R = utils3d.torch.euler_angles_to_matrix(torch.stack([pitch, yaw, roll], dim=-1), 'ZXY')            # (N, 3, 3)
+        T = center + (R @ -center.unsqueeze(-1)).squeeze(-1) * (torch.randn(N).to(device) * self.noise_settings['radius'] + 1.0).unsqueeze(-1)  # (N, 3)
+        extrinsics_tgt = torch.eye(4, dtype=torch.float32).to(device).unsqueeze(0).repeat(N, 1, 1)          # (N, 4, 4)
+        extrinsics_tgt[:, :3, :3] = R
+        extrinsics_tgt[:, :3, 3] = T
+        data['transform'] = extrinsics_tgt
+
+        self.transform = extrinsics_tgt
+        data = super().__call__(data, pipe=pipe)
+        return data
+
+
+class RandomWarping2(Warping, Node):
+    """
+    A random warping strategy for full scene. It ensures that camera does not get into walls or other objects.
+
+    1. choose a random target camera position by "step-into"/"step-out"/"near-by" strategy
+    2. random choose a point near the center of the image and roughly make sure that its gaze is not changed by the transformation
+    3. additionally rotate the camera orientation by random (yaw, pitch, roll) angles (proportional to FOV).
+    """
+    def __init__(self, 
+        in_image_key: str = "image", in_depth_key: str = "depth", 
+        out_image_key: str = "warped_image", out_depth_key: str = "warped_depth", out_mask_key: str = "warped_mask", 
+        out_uv_key: str = "warped_uv", out_dr_key: str = "warped_dr", 
+        ctx: Literal['gl', 'cuda'] = 'cuda', 
+        noise_override: Dict[str, float] = {}, mask_cfg_override: Dict[str, float] = {}
+    ):
+        super().__init__(in_image_key, in_depth_key, out_image_key, out_depth_key, out_mask_key, out_uv_key, out_dr_key, ctx, None, mask_cfg_override)
+        DEFAULT_NOISE = {
+            'x': 0.10,
+            'y': 0.10,
+            'z': 0.10,
             'depth': 0.10,
             'radius': 0.10,
             'yaw': 30,

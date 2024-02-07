@@ -1,4 +1,5 @@
 from typing import *
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -6,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import cv2
 from torchvision.transforms import Compose
+from huggingface_hub import hf_hub_download
 
 from ..models.depth_anything.dpt import DepthAnything
 from ..models.depth_anything.util.transform import Resize, NormalizeImage, PrepareForNet
@@ -16,6 +18,8 @@ __all__ = [
     'load_depthanything_model',
     'zoedepth_predict_depth',
     'depthanything_predict_disparity',
+    'load_depthanything_metric_depth_model'
+    'depthanything_predict_depth'
 ]
 
 
@@ -33,6 +37,22 @@ def load_depthanything_model(model_path="LiheYoung/depth_anything_vitl14", devic
     return depth_anything
 
 
+def load_depthanything_metric_depth_model(
+    model_path="./checkpoints/Depth-Anything/checkpoints_metric_depth/depth_anything_metric_depth_indoor.pt", 
+    device='cuda',
+):
+    from ..models.depth_anything_zoedepth.utils.config import get_config
+    from ..models.depth_anything_zoedepth.models.zoedepth import ZoeDepth
+
+    if not Path(model_path).exists():
+        raise FileNotFoundError(f"Model checkpoint {model_path} not found.")
+
+    config = get_config("zoedepth", "infer", None)
+    model = ZoeDepth.build(**config, core_checkpoint_path=None, metric_depth_checkpoint_path=model_path)
+
+    model.to(device)
+    return model
+
 @torch.no_grad()
 def zoedepth_predict_depth(zeo_depth_model, image: torch.Tensor):
     """
@@ -45,6 +65,21 @@ def zoedepth_predict_depth(zeo_depth_model, image: torch.Tensor):
     """
     depth_tensor = zeo_depth_model.infer(image).squeeze(1)
     return depth_tensor
+
+
+@torch.no_grad()
+def depthanything_predict_depth(depthanything_metric_depth_model: nn.Module, image: torch.Tensor):
+    """
+    Predict depth from image using ZoeDepth.
+
+    Args:
+        image: (N, 3, H, W) tensor of images.
+    Returns:
+        depth: (N, H, W) tensor of linearized depth.
+    """
+    depth_tensor = depthanything_metric_depth_model.infer(image).squeeze(1)
+    return depth_tensor
+
 
 
 @torch.no_grad()
